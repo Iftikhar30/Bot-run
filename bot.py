@@ -1,30 +1,42 @@
 import telebot
+from telebot import types
 
 # ✅ টেলিগ্রাম বট টোকেন
 TOKEN = "7841877349:AAGQgDDyyizNSaxvxNWfplUkcnVhALWBYF8"
 
-# 🤖 Bot তৈরি
 bot = telebot.TeleBot(TOKEN)
 
-# 🔰 Start কমান্ড হ্যান্ডলার
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    bot.reply_to(message, "👋 হ্যালো! আমি ইউটিউব লাইভ লিংক কনভার্ট করতে পারি! আমাকে একটি YouTube লাইভ লিংক পাঠান।")
+# 📌 অনুমতি পাওয়া ইউজার আইডি স্টোর
+allowed_users = set()
 
-# 🔗 যেকোনো মেসেজ হ্যান্ডলার
+# ✅ /start কমান্ড — কন্টাক্ট পারমিশন চায়
+@bot.message_handler(commands=['start'])
+def ask_contact_permission(message):
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    contact_button = types.KeyboardButton("📱 কন্টাক্ট শেয়ার করুন", request_contact=True)
+    markup.add(contact_button)
+    bot.send_message(message.chat.id, "🚨 অনুগ্রহ করে আপনার কন্টাক্ট শেয়ার করুন বট ব্যবহারের আগে:", reply_markup=markup)
+
+# ✅ কন্টাক্ট পেলে অনুমতি লিস্টে যোগ করে
+@bot.message_handler(content_types=['contact'])
+def contact_handler(message):
+    user_id = message.from_user.id
+    contact = message.contact.phone_number
+    allowed_users.add(user_id)
+    bot.send_message(message.chat.id, f"✅ ধন্যবাদ! আপনার কন্টাক্ট গ্রহণ করা হয়েছে: {contact}\nএখন আপনি YouTube লাইভ লিংক পাঠাতে পারেন।")
+
+# ✅ YouTube লিংক প্রসেস করা হ্যান্ডলার
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     user_id = message.from_user.id
-    first_name = message.from_user.first_name
-    username = message.from_user.username
     text = message.text.strip()
 
-    # 🔍 Console Log
-    print(f"👤 User: {first_name} (@{username}) | ID: {user_id}")
-    print(f"💬 Message: {text}")
-    print("-" * 50)
+    # 👮 কন্টাক্ট না দিলে ব্লক করো
+    if user_id not in allowed_users:
+        bot.send_message(message.chat.id, "❌ আপনি এখনো কন্টাক্ট শেয়ার করেননি। অনুগ্রহ করে /start দিন এবং কন্টাক্ট শেয়ার করুন।")
+        return
 
-    # 🎯 YouTube লাইভ লিংক চেক
+    # 🔍 ইউটিউব লাইভ লিংক চেক
     if "youtube.com/live/" in text:
         try:
             video_id = text.split("/live/")[-1].split("?")[0]
@@ -38,6 +50,6 @@ def handle_message(message):
 
     bot.reply_to(message, reply)
 
-# ✅ Bot চালু
+# ✅ বট চালু
 print("🤖 Bot চালু হয়েছে...")
 bot.polling()
